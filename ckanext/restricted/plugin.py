@@ -1,6 +1,7 @@
 # coding: utf8
 
 from __future__ import unicode_literals
+import json
 from ckan.lib.plugins import DefaultTranslation
 import ckan.logic
 import ckan.plugins as plugins
@@ -29,6 +30,7 @@ class RestrictedPlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.IBlueprint, inherit=True)
     plugins.implements(plugins.IResourceController, inherit=True)
     plugins.implements(plugins.IValidators)
+    plugins.implements(plugins.IPackageController, inherit=True)
 
 
     # IConfigurer
@@ -70,6 +72,17 @@ class RestrictedPlugin(plugins.SingletonPlugin, DefaultTranslation):
     def after_resource_update(self, context, resource):
         previous_value = context.get('__restricted_previous_value')
         logic.restricted_notify_allowed_users(previous_value, resource)
+
+    # IPackageController
+    def before_dataset_index(self, pkg_dict):
+        # package_search hides restricted URLs in results, but res_url facets and queries would still expose them.
+        data_dict = json.loads(pkg_dict.get('validated_data_dict') or '{}')
+        restricted_urls = {
+            resource.get('url') for resource in data_dict.get('resources', [])
+            if logic.restricted_get_restricted_dict(resource).get('level') != 'public'}
+        if restricted_urls:
+            pkg_dict['res_url'] = [url for url in pkg_dict.get('res_url', []) if url not in restricted_urls]
+        return pkg_dict
 
     # IBlueprint
     def get_blueprint(self):
