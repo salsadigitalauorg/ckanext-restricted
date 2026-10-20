@@ -194,6 +194,8 @@ def _restricted_resource_list_hide_fields(context, resource_list):
         authorized = auth.restricted_resource_show(
             context, {'id': resource.get('id'), 'resource': resource}
             ).get('success', False)
+        if not authorized:
+            restricted_resource['url'] = ''
 
         # hide other fields in restricted to everyone but dataset owner(s)
         if not authz.is_authorized(
