@@ -10,6 +10,7 @@ import ckan.lib.navl.dictization_functions as dictization_functions
 import ckan.logic as logic
 import ckan.model as model
 import ckan.plugins.toolkit as toolkit
+from ckanext.restricted.logic import restricted_admin_email
 from jinja2 import Environment
 import os
 import simplejson as json
@@ -137,9 +138,9 @@ def _send_request_mail(data):
             'resource_name': data.get('resource_name', ''),
             'resource_link': config.get('ckan.site_url') + resource_link,
             'resource_edit_link': config.get('ckan.site_url') + resource_edit_link,
-            'package_name': data.get('resource_name', ''),
+            'package_name': data.get('package_name', ''),
             'message': data.get('message', ''),
-            'admin_email_to': config.get('email_to', 'email_to_undefined')}
+            'admin_email_to': restricted_admin_email() or 'email_to_undefined'}
 
         mail_template = 'restricted/emails/restricted_access_request.txt'
         body = render(mail_template, extra_vars)
@@ -150,9 +151,9 @@ def _send_request_mail(data):
                 data.get('package_name', ''),
                 data.get('user_name', ''))
 
-        email_dict = {
-            data.get('maintainer_email'): extra_vars.get('maintainer_name'),
-            extra_vars.get('admin_email_to'): '{} Admin'.format(extra_vars.get('site_title'))}
+        email_dict = {data.get('maintainer_email'): extra_vars.get('maintainer_name')}
+        if restricted_admin_email():
+            email_dict[restricted_admin_email()] = '{} Admin'.format(extra_vars.get('site_title'))
 
         headers = {
             'CC': ",".join(email_dict.keys()),
@@ -208,6 +209,10 @@ def _send_request(context):
         pkg = toolkit.get_action('package_show')(
             context, {'id': data_dict.get('package_name')})
         data_dict['pkg_dict'] = pkg
+        # The form posts these back; never let the browser choose who the mail goes to.
+        contact_details = _get_contact_details(pkg)
+        data_dict['maintainer_email'] = contact_details['contact_email']
+        data_dict['maintainer_name'] = contact_details['contact_name']
     except toolkit.ObjectNotFound:
         toolkit.abort(404, _('Dataset not found'))
     except Exception:
@@ -268,6 +273,6 @@ def _get_contact_details(pkg_dict):
             pass
     # CKAN instance Admin
     if not contact_email:
-        contact_email = config.get('email_to', 'email_to_undefined')
+        contact_email = restricted_admin_email() or 'email_to_undefined'
         contact_name = 'CKAN Admin'
     return {'contact_email': contact_email, 'contact_name': contact_name}
