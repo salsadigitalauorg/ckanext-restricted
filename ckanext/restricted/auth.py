@@ -25,6 +25,13 @@ def restricted_resource_show(context, data_dict=None):
             {'id': resource.get('package_id')}).get('success'):
         return ({'success': True})
 
+    # Core resource_show auth checks package_show; keep that so resources in private datasets
+    # stay hidden (datastore_search only checks resource_show).
+    if not authz.is_authorized(
+            'package_show', context,
+            {'id': resource.get('package_id')}).get('success'):
+        return {'success': False}
+
     user_name = logic.restricted_get_username_from_context(context)
 
     package = data_dict.get('package', {})
