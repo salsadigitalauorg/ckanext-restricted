@@ -20,6 +20,7 @@
 {% block primary_content_inner %}
   <h2>{{ _('Request Access to: ') }} {{ data.resource_name }}</h2>
   <form id="restricted-request-access" class="dataset-form form-horizontal" method="post" action="{{ action }}" >
+  {{ h.csrf_input() }}
   {% block errors %}{{ form.errors(error_summary) }}{% endblock %}
   {% block basic_fields %}
     <input id='field-package_name' name='package_name' type="hidden" value="{{ data.package_name }}" />
