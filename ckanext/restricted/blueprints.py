@@ -238,8 +238,10 @@ def _send_request(context):
 
 
 def _get_contact_details(pkg_dict):
-    contact_email = ""
-    contact_name = ""
+    contact_email = pkg_dict.get('point_of_contact_email', '')
+    contact_name = pkg_dict.get('point_of_contact', '')
+    if contact_email:
+        return {'contact_email': contact_email, 'contact_name': contact_name}
     # Maintainer as Composite field
     try:
         contact_email = json.loads(
