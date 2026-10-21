@@ -9,11 +9,13 @@ from ckan.lib.mailer import mail_recipient
 from ckan.lib.mailer import MailerException
 import ckan.logic
 from ckan.logic.action.create import user_create
+from ckan.logic.action.get import current_package_list_with_resources
 from ckan.logic.action.get import package_search
 from ckan.logic.action.get import package_show
 from ckan.logic.action.get import resource_search
 from ckan.logic.action.get import resource_view_list
 from ckan.logic import side_effect_free
+import ckan.plugins.toolkit as toolkit
 from ckanext.restricted import auth
 from ckanext.restricted import logic
 import json
@@ -149,6 +151,31 @@ def restricted_package_search(context, data_dict):
     return restricted_package_search_result
 
 @side_effect_free
+def restricted_current_package_list_with_resources(context, data_dict):
+    # Core calls its own package_search directly, so the override above doesn't apply.
+    packages = current_package_list_with_resources(context, data_dict)
+    for package in packages:
+        package['resources'] = _restricted_resource_list_hide_fields(context, package.get('resources', []))
+    return packages
+
+
+@toolkit.chained_action
+def restricted_activity_create(original_action, context, data_dict):
+    # Activities snapshot the package as the editor sees it, and any user who can see the dataset can read them.
+    package = (data_dict.get('data') or {}).get('package') or {}
+    for resource in package.get('resources', []):
+        if logic.restricted_get_restricted_dict(resource).get('level') != 'public':
+            _hide_url(resource)
+    return original_action(context, data_dict)
+
+
+def _hide_url(resource):
+    resource['url'] = ''
+    # xloader keeps a copy of the URL it loaded from
+    resource.pop('original_url', None)
+
+
+@side_effect_free
 def restricted_check_access(context, data_dict):
 
     package_id = data_dict.get('package_id', False)
@@ -195,7 +222,7 @@ def _restricted_resource_list_hide_fields(context, resource_list):
             context, {'id': resource.get('id'), 'resource': resource}
             ).get('success', False)
         if not authorized:
-            restricted_resource['url'] = ''
+            _hide_url(restricted_resource)
 
         # hide other fields in restricted to everyone but dataset owner(s)
         if not authz.is_authorized(
