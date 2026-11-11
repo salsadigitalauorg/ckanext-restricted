@@ -18,6 +18,15 @@ log = getLogger(__name__)
 
 render = base.render
 
+def restricted_admin_email():
+    """Support address copied on access mail.
+
+    Prefer ``ckanext.restricted.admin_email``: setting core ``email_to`` also turns on
+    CKAN's error mail handler, which mails every server error with request headers.
+    """
+    return config.get('ckanext.restricted.admin_email') or config.get('email_to')
+
+
 def restricted_get_username_from_context(context):
     auth_user_obj = context.get('auth_user_obj', None)
     user_name = ''
@@ -147,10 +156,11 @@ def restricted_mail_allowed_user(user_id, resource):
         # Send mail to user
         mailer.mail_recipient(user_name, user_email, mail_subject, mail_body)
 
-        # Send copy to admin
-        mailer.mail_recipient(
-            'CKAN Admin', config.get('email_to'),
-            'Fwd: {}'.format(mail_subject), mail_body)
+        admin_email = restricted_admin_email()
+        if admin_email:
+            mailer.mail_recipient(
+                'CKAN Admin', admin_email,
+                'Fwd: {}'.format(mail_subject), mail_body)
 
     except Exception as e:
         log.warning(('restricted_mail_allowed_user: '
