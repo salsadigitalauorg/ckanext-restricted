@@ -170,6 +170,10 @@ def restricted_activity_create(original_action, context, data_dict):
 
 
 def _hide_url(resource):
+    # Editors often paste the link into Name as well. Uploads only have a filename, which is hidden anyway.
+    url = (resource.get('url') or '').rstrip('/').lower()
+    if url and resource.get('url_type') != 'upload' and url in (resource.get('name') or '').lower():
+        resource['name'] = _('Restricted link')
     resource['url'] = ''
     # xloader keeps a copy of the URL it loaded from
     resource.pop('original_url', None)
